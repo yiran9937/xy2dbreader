@@ -1,6 +1,7 @@
 package com.yiran.xy2sf;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
@@ -28,7 +29,7 @@ public class SQLiteGameZhaohuan {
 
             if (playerData != null) {
                 System.out.println("读取成功！当前数据摘要：");
-                System.out.println("data=" + JSON.toJSONString(playerData, true));
+                System.out.println("data=" + JSON.toJSONString(playerData, JSONWriter.Feature.PrettyFormat));
 
             } else {
                 System.out.println("未找到 ID 为 " + playerId + " 的玩家数据。");

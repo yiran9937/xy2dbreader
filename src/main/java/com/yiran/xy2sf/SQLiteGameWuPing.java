@@ -1,34 +1,130 @@
 package com.yiran.xy2sf;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONPath;
+import com.alibaba.fastjson2.JSONWriter;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
 
 import java.io.IOException;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SQLiteGameWuPing {
 
     private static final ObjectMapper msgpackMapper = new ObjectMapper(new MessagePackFactory());
 
     // SQLite 数据库连接 URL（替换为你实际的本地 .db 文件路径）
-    private static final String DB_URL = "jdbc:sqlite:E:\\yiran\\xy2\\服务端\\sever\\data\\save.db";
+    private static final String DB_URL = "jdbc:sqlite:D:\\games\\dh24\\服务端\\sever\\data\\save.db";
 
     public static void main(String[] args) {
         // 假设你要修改角色 ID 为 10001 的数据
-        int playerId = 1;
+        // queryAllWuPing(3);
 
+        modifyData();
+
+    }
+
+    private static void modifyData(){
+        String[][] mdCfg = new String[][]{
+                {"抗风", "抗封印", "16"}
+        };
+        try {
+            int rid = 3;
+            int index = 257;
+            Map<String, Object> data = selectOne(rid, index);
+            System.out.println("data=" + JSON.toJSONString(data, JSONWriter.Feature.PrettyFormat));
+            // Fastjson2 解析成 JSONObject
+            JSONObject jo = JSON.parseObject(JSON.toJSONString(data));
+
+            // 灵活配置所有的修改规则
+            List<ModRule> rules = new ArrayList<>();
+
+            // 1. 修改最外层 Key-Value (单值)
+            rules.add(new ModRule("$.默契值", 500));
+            // 2. 修改基本属性 (找到抗风的子数组，直接替换整个子数组，解决 1 到 2 个值的问题)
+            rules.add(new ModRule("$.基本属性[?(@[0] == '抗风')]", new Object[]{"抗封印", 16}));
+            // 3. 修改附加属性 (有两个或多个值的数组，直接覆盖)
+            rules.add(new ModRule("$.附加属性[?(@[0] == '速度')]", new Object[]{"速度", 2, 20}));
+            rules.add(new ModRule("$.附加属性[?(@[0] == '抗震慑')]", new Object[]{"抗遗忘", 0.1, 4.2}));
+            // 4. 修改复杂的 Key -> 数组 -> Key 嵌套结构
+            //rules.add(new ModRule("$.内丹列表[?(@.名称 == '神兽丹')].经验", 99999));
+
+            // 遍历并执行修改
+            for (ModRule rule : rules) {
+                // Fastjson2 的 JSONPath.set 直接支持标准复杂过滤，并且会自动转换底层数组格式
+                JSONPath.set(jo, rule.path, rule.value);
+            }
+
+            // 打印修改后的标准 JSON 字符串
+            System.out.println("修改完成后的结果：\n" + JSON.toJSONString(jo, JSONWriter.Feature.PrettyFormat));
+            //saveWupingData(jo);
+/*
+{
+		"等级需求": [
+			60,
+			0
+		],
+		"位置": 564,
+		"丢弃时间": 0,
+		"获得时间": 0,
+		"耐久": 300,
+		"默契值": 1,
+		"名称": "草莺斗篷",
+		"属性要求": [
+			"根骨",
+			80
+		],
+		"基本属性": [
+			[
+				"灵性",
+				6
+			],
+			[
+				"附加气血",
+				600
+			],
+			[
+				"抗遗忘",
+				16
+			]
+		],
+		"默契值上限": 1000,
+		"附加属性": [
+			[
+				"速度",
+				1,
+				17
+			],
+			[
+				"抗混乱",
+				0.1,
+				4.2
+			]
+		],
+		"数量": 1
+	}
+ */
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void queryAllWuPing(int playerId){
         try {
             System.out.println("1. 正在从 SQLite 读取玩家数据...");
             List<Map<String, Object>> playerData = loadPlayerData(playerId);
 
             if (playerData != null) {
                 System.out.println("读取成功！当前数据摘要：");
-                System.out.println("data=" + JSON.toJSONString(playerData, true));
+//                System.out.println("data=" + JSON.toJSONString(playerData, true));
+                printData(playerData);
 
             } else {
                 System.out.println("未找到 ID 为 " + playerId + " 的玩家数据。");
@@ -39,23 +135,35 @@ public class SQLiteGameWuPing {
         }
     }
 
-    /**
-     * 从数据库读取并解析玩家数据
-     */
-    public static List<Map<String, Object>> loadPlayerData(int playerId) throws SQLException, IOException {
-        // 假设表名是 players，包含 id 和 data 字段（data 字段可能为 BLOB 或 TEXT）
-        String sql = "SELECT 数据 FROM 物品 WHERE rid = ? and 数量 = 1";
 
-        List<Map<String, Object>> result = new ArrayList<>();
+    private static void printData(List<Map<String, Object>> playerData){
+        List<Integer> indexArr = new ArrayList<>();
+        Map<Integer, Map<String, Object>> dataMap = new HashMap<>();
+        for (Map<String, Object> playerDatum : playerData) {
+            // System.out.println("位置:" + playerDatum.get("位置"));
+            Integer key = Integer.valueOf(playerDatum.get("位置").toString());
+            if (key > 256 && key < 512){
+                indexArr.add(key);
+                dataMap.put(key, playerDatum);
+            }
+        }
+        Collections.sort(indexArr);
+        System.out.println(JSON.toJSONString(dataMap, JSONWriter.Feature.PrettyFormat));
+    }
 
+    public static Map<String, Object> selectOne(int rid, int index) throws SQLException, IOException{
+        String sql = "SELECT nid, 数据 FROM 物品 WHERE rid = ? and 位置 = ?";
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setInt(1, playerId);
+            pstmt.setInt(1, rid);
+            pstmt.setInt(2, index);
             try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
+                if (rs.next()) {
                     // 兼容性读取：先尝试作为二进制（BLOB）读取，如果失败则作为 String 读取
                     byte[] bytes = rs.getBytes("数据");
+
+                    String nid = rs.getString("nid");
 
                     if (bytes == null || bytes.length == 0) {
                         return null;
@@ -70,8 +178,66 @@ public class SQLiteGameWuPing {
                         bytes = hexStringToByteArray(hexStr);
                     }
 
+                    Map<String, Object> data = msgpackMapper.readValue(bytes, new TypeReference<Map<String, Object>>() {});
                     // 使用 MsgPack 反序列化为 Map
-                    result.add(msgpackMapper.readValue(bytes, new TypeReference<Map<String, Object>>() {})) ;
+                    data.put("nid", nid);
+                    return data;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public static class ModRule {
+        String path;   // JSONPath 表达式
+        Object value;  // 替换成什么值（可以是单个数字、数组、甚至整个JSONObject）
+
+        public ModRule(String path, Object value) {
+            this.path = path;
+            this.value = value;
+        }
+    }
+
+
+
+    /**
+     * 从数据库读取并解析玩家数据
+     */
+    public static List<Map<String, Object>> loadPlayerData(int playerId) throws SQLException, IOException {
+        // 假设表名是 players，包含 id 和 data 字段（data 字段可能为 BLOB 或 TEXT）
+        String sql = "SELECT nid, 数据 FROM 物品 WHERE rid = ? and 数量 = 1";
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, playerId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    // 兼容性读取：先尝试作为二进制（BLOB）读取，如果失败则作为 String 读取
+                    byte[] bytes = rs.getBytes("数据");
+
+                    String nid = rs.getString("nid");
+
+                    if (bytes == null || bytes.length == 0) {
+                        return null;
+                    }
+
+                    // 判断是否为 16 进制字符串格式（有些 SF 的 SQLite 会把 Hex 串当成 Text 存入）
+                    if (isHexString(bytes)) {
+                        String hexStr = new String(bytes).trim();
+                        if (hexStr.startsWith("0x") || hexStr.startsWith("0X")) {
+                            hexStr = hexStr.substring(2);
+                        }
+                        bytes = hexStringToByteArray(hexStr);
+                    }
+
+                    Map<String, Object> data = msgpackMapper.readValue(bytes, new TypeReference<Map<String, Object>>() {});
+                    // 使用 MsgPack 反序列化为 Map
+                    data.put("nid", nid);
+                    result.add(data) ;
                 }
             }
         }
@@ -81,9 +247,11 @@ public class SQLiteGameWuPing {
     /**
      * 将修改后的 Map 序列化并存回 SQLite
      */
-    public static void savePlayerData(int playerId, Map<String, Object> playerData) throws IOException, SQLException {
+    public static void saveWupingData(Map<String, Object> wuPingData) throws IOException, SQLException {
+        String nid = wuPingData.get("nid").toString();
+        wuPingData.remove("nid");
         // 将 Map 转换为 MsgPack 二进制字节流
-        byte[] bytes = msgpackMapper.writeValueAsBytes(playerData);
+        byte[] bytes = msgpackMapper.writeValueAsBytes(wuPingData);
 
         // 如果你的数据库字段是 TEXT 格式，需要转成 Hex 串，请启用下面两行：
         // String hexStr = "0x" + byteArrayToHexString(bytes);
@@ -93,13 +261,13 @@ public class SQLiteGameWuPing {
         byte[] dataToSave = bytes;
 
         //String sql = "SELECT 数据 FROM 角色 WHERE id = ?";
-        String sql = "UPDATE 角色 SET 数据 = ? WHERE id = ?";
+        String sql = "UPDATE 物品 SET 数据 = ? WHERE nid = ?";
 
         try (Connection conn = DriverManager.getConnection(DB_URL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setBytes(1, dataToSave); // 对应 BLOB
-            pstmt.setInt(2, playerId);
+            pstmt.setString(2, nid);
             pstmt.executeUpdate();
         }
     }

@@ -1,6 +1,7 @@
 package com.yiran.xy2sf;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONWriter;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
@@ -14,11 +15,11 @@ public class SQLiteGameDataManager {
     private static final ObjectMapper msgpackMapper = new ObjectMapper(new MessagePackFactory());
 
     // SQLite 数据库连接 URL（替换为你实际的本地 .db 文件路径）
-    private static final String DB_URL = "jdbc:sqlite:E:\\yiran\\xy2\\服务端\\sever\\data\\save.db";
+    private static final String DB_URL = "jdbc:sqlite:D:\\games\\dh24\\服务端\\sever\\data\\save.db";
 
     public static void main(String[] args) {
         // 假设你要修改角色 ID 为 10001 的数据
-        int playerId = 1;
+        int playerId = 3;
 
         try {
             System.out.println("1. 正在从 SQLite 读取玩家数据...");
@@ -27,7 +28,7 @@ public class SQLiteGameDataManager {
             if (playerData != null) {
                 System.out.println("读取成功！当前数据摘要：");
 
-                System.out.println("data=" + JSON.toJSONString(playerData, true));
+                System.out.println("data=" + JSON.toJSONString(playerData, JSONWriter.Feature.PrettyFormat));
                 System.out.println("角色名称: " + playerData.get("名称"));
                 System.out.println("最大气血: " + playerData.get("最大气血"));
 
