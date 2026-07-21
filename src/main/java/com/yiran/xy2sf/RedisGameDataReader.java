@@ -39,11 +39,18 @@ public class RedisGameDataReader {
             jedisPool = new JedisPool(poolConfig, REDIS_HOST, REDIS_PORT, 2000, null, databaseIndex);
         }
     }
-
+//3	4	kUI5HNQdOD6ESS45EAsDV		1784287658	0	0	0	1784450923	127.0.0.1	缘定今生
+//4	4	uxzl2SstULpcekrLF9MoJ		1784287832	0	0	0	1784450921	127.0.0.1	易之然
+//5	4	vjesGRT3PfZSNeWA3IFdn		1784287880	0	0	0	1784450920	127.0.0.1	滴滴答答
+//6	4	hGhiuscx-FsoEOOGNPPuf		1784287910	0	0	0	1784450921	127.0.0.1	月不常圆
+//7	4	Wl1DmQz1p9f56I1CarkdR		1784287931	0	0	0	1784450921	127.0.0.1	小命不保
     public static void main(String[] args) {
         // 假设 Redis 中角色的 Key 是 "player:10001"
 //        String playerKey = "USER:zNSFZDHWxyJ9hVd3H9-Kt";
-        String playerKey = "日常活动限制";
+
+        System.out.println(JSON.toJSONString(getAllKeys(), JSONWriter.Feature.PrettyFormat));
+        String playerKey = "USER:kUI5HNQdOD6ESS45EAsDV";
+//        String playerKey = "日常活动限制";
 
         try {
             System.out.println("1. 正在从 Redis 读取玩家数据...");
@@ -51,8 +58,6 @@ public class RedisGameDataReader {
             System.out.println(JSON.toJSONString(playerData, JSONWriter.Feature.PrettyFormat));
 
 
-//            Set<String> allKeys = getAllKeys();
-//            System.out.println("all key\n" + JSON.toJSONString(allKeys, true));
 
 
         } catch (Exception e) {

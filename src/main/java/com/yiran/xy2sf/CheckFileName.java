@@ -14,9 +14,10 @@ public class CheckFileName {
     private static final Pattern NAME_PATTERN = Pattern.compile("(?:名称|name)\\s*=\\s*'([^']+)'");
 
     public static void main(String[] args) {
+        //D:\games\dh24\服务端\sever\scripts
         // 替换成你的文件真实路径
-        String filePathA = "E:\\yiran\\dh2\\scripts\\掉落池new.lua";
-        String filePathB = "E:\\yiran\\dh2\\scripts\\make\\物品库.lua";
+        String filePathA = "D:\\games\\dh24\\服务端\\sever\\scripts\\掉落池.lua";
+        String filePathB = "D:\\games\\dh24\\服务端\\sever\\scripts\\make\\物品库.lua";
 
         // 1. 读取 B 文件中的所有名称并放入 Set (用于 O(1) 快速查找)
         Set<String> setB = new HashSet<>();
