@@ -17,23 +17,21 @@ public class SQLiteGameWuPing {
     private static final ObjectMapper msgpackMapper = new ObjectMapper(new MessagePackFactory());
 
     // SQLite 数据库连接 URL（替换为你实际的本地 .db 文件路径）
-    private static final String DB_URL = "jdbc:sqlite:D:\\games\\dh24\\服务端\\sever\\data\\save.db";
+//    private static final String DB_URL = "jdbc:sqlite:D:\\games\\dh24\\服务端\\sever\\data\\save.db";
+    private static final String DB_URL = "jdbc:sqlite:I:\\java\\ideaIU-2018.2.6.win\\workspace\\xy2dbreader\\db\\save.db";
 
     public static void main(String[] args) {
         // 假设你要修改角色 ID 为 10001 的数据
-        // queryAllWuPing(3);
+//         queryAllWuPing(3);
 
         modifyData();
 
     }
 
     private static void modifyData(){
-        String[][] mdCfg = new String[][]{
-                {"抗风", "抗封印", "16"}
-        };
         try {
             int rid = 3;
-            int index = 257;
+            int index = 267;
             Map<String, Object> data = selectOne(rid, index);
             System.out.println("data=" + JSON.toJSONString(data, JSONWriter.Feature.PrettyFormat));
             // Fastjson2 解析成 JSONObject
@@ -43,12 +41,13 @@ public class SQLiteGameWuPing {
             List<ModRule> rules = new ArrayList<>();
 
             // 1. 修改最外层 Key-Value (单值)
-            rules.add(new ModRule("$.默契值", 500));
+//            rules.add(new ModRule("$.默契值", 500));
             // 2. 修改基本属性 (找到抗风的子数组，直接替换整个子数组，解决 1 到 2 个值的问题)
-            rules.add(new ModRule("$.基本属性[?(@[0] == '抗风')]", new Object[]{"抗封印", 16}));
+            rules.add(new ModRule("$.基本属性[?(@[0] == '力量')]", new Object[]{"敏捷", 10}));
+            rules.add(new ModRule("$.基本属性[?(@[0] == '抗遗忘')]", new Object[]{"抗封印", 10}));
             // 3. 修改附加属性 (有两个或多个值的数组，直接覆盖)
-            rules.add(new ModRule("$.附加属性[?(@[0] == '速度')]", new Object[]{"速度", 2, 20}));
-            rules.add(new ModRule("$.附加属性[?(@[0] == '抗震慑')]", new Object[]{"抗遗忘", 0.1, 4.2}));
+            rules.add(new ModRule("$.附加属性[?(@[0] == '抗混乱')]", new Object[]{"抗封印", 0.1, 4.2}));
+            rules.add(new ModRule("$.附加属性[?(@[0] == '抗雷')]", new Object[]{"抗昏睡", 0.1, 4.2}));
             // 4. 修改复杂的 Key -> 数组 -> Key 嵌套结构
             //rules.add(new ModRule("$.内丹列表[?(@.名称 == '神兽丹')].经验", 99999));
 
@@ -60,7 +59,7 @@ public class SQLiteGameWuPing {
 
             // 打印修改后的标准 JSON 字符串
             System.out.println("修改完成后的结果：\n" + JSON.toJSONString(jo, JSONWriter.Feature.PrettyFormat));
-            //saveWupingData(jo);
+            saveWupingData(jo);
 /*
 {
 		"等级需求": [
