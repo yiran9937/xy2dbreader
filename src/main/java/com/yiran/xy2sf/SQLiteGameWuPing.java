@@ -31,7 +31,7 @@ public class SQLiteGameWuPing {
     private static void modifyData(){
         try {
             int rid = 3;
-            int index = 259;
+            int index = 24;
             Map<String, Object> data = selectOne(rid, index);
             System.out.println("data=" + JSON.toJSONString(data, JSONWriter.Feature.PrettyFormat));
             // Fastjson2 解析成 JSONObject
@@ -43,14 +43,14 @@ public class SQLiteGameWuPing {
             // 1. 修改最外层 Key-Value (单值)
 //            rules.add(new ModRule("$.默契值", 500));
             // 2. 修改基本属性 (找到抗风的子数组，直接替换整个子数组，解决 1 到 2 个值的问题)
-            rules.add(new ModRule("$.属性要求", new Object[]{"敏捷", 60}));
+//            rules.add(new ModRule("$.属性要求", new Object[]{"敏捷", 60}));
 
-            rules.add(new ModRule("$.基本属性[?(@[0] == '灵性')]", new Object[]{"敏捷", 10}));
-            rules.add(new ModRule("$.基本属性[?(@[0] == '抗混乱')]", new Object[]{"抗封印", 16}));
-//            rules.add(new ModRule("$.基本属性[?(@[0] == '四抗上限')]", new Object[]{"抗震慑", 0.2, 3}));
+//            rules.add(new ModRule("$.基本属性[?(@[0] == '抗混乱')]", new Object[]{"抗混乱", 75}));
+//            rules.add(new ModRule("$.基本属性[?(@[0] == '抗混乱')]", new Object[]{"抗封印", 16}));
+//            rules.add(new ModRule("$.基本属性[?(@[0] == '四抗上限')]", new Object[]{"抗混乱上限", 14, 2}));
             // 3. 修改附加属性 (有两个或多个值的数组，直接覆盖)
-            rules.add(new ModRule("$.附加属性[?(@[0] == '抗火')]", new Object[]{"抗封印", 0.1, 4.2}));
-            rules.add(new ModRule("$.附加属性[?(@[0] == '抗雷')]", new Object[]{"抗昏睡", 0.1, 4.2}));
+//            rules.add(new ModRule("$.附加属性[?(@[0] == '抗火')]", new Object[]{"抗封印", 0.1, 4.2}));
+            rules.add(new ModRule("$.附加属性[?(@[0] == '忽视抗混')]", new Object[]{"忽视抗混", 5.6, 0.8}));
             // 4. 修改复杂的 Key -> 数组 -> Key 嵌套结构
             //rules.add(new ModRule("$.内丹列表[?(@.名称 == '神兽丹')].经验", 99999));
 
@@ -59,7 +59,10 @@ public class SQLiteGameWuPing {
                 // Fastjson2 的 JSONPath.set 直接支持标准复杂过滤，并且会自动转换底层数组格式
                 JSONPath.set(jo, rule.path, rule.value);
             }
-//            jo.getJSONArray("附加属性").add(new Object[]{"加强抗混", 0.2, 1.6});
+//            jo.getJSONArray("附加属性").add(new Object[]{"加强混乱", 5.6, 0.8});
+//            jo.getJSONArray("附加属性").add(new Object[]{"加强仙法", 8.4, 1.2});
+//            jo.getJSONArray("基本属性").add(new Object[]{"抗风", 75});
+            jo.getJSONArray("附加属性").remove(2);
 
             // 打印修改后的标准 JSON 字符串
             System.out.println("修改完成后的结果：\n" + JSON.toJSONString(jo, JSONWriter.Feature.PrettyFormat));
@@ -145,7 +148,8 @@ public class SQLiteGameWuPing {
         for (Map<String, Object> playerDatum : playerData) {
             // System.out.println("位置:" + playerDatum.get("位置"));
             Integer key = Integer.valueOf(playerDatum.get("位置").toString());
-            if (key > 256 && key < 512){
+//            if (key > 256 && key < 512){
+            if (key > 1 && key < 1111512){
                 indexArr.add(key);
                 dataMap.put(key, playerDatum);
             }

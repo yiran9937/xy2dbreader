@@ -49,13 +49,15 @@ public class RedisGameDataReader {
 //        String playerKey = "USER:zNSFZDHWxyJ9hVd3H9-Kt";
 
         System.out.println(JSON.toJSONString(getAllKeys(), JSONWriter.Feature.PrettyFormat));
-        String playerKey = "USER:kUI5HNQdOD6ESS45EAsDV";
-//        String playerKey = "日常活动限制";
+//        String playerKey = "USER:kUI5HNQdOD6ESS45EAsDV";
+        String playerKey = "日常活动限制";
 
         try {
             System.out.println("1. 正在从 Redis 读取玩家数据...");
             Object playerData = loadPlayerData(playerKey);
             System.out.println(JSON.toJSONString(playerData, JSONWriter.Feature.PrettyFormat));
+
+            deleteKey(playerKey);
 
 
 
@@ -126,6 +128,12 @@ public class RedisGameDataReader {
 
             // 3. 使用 MsgPack 反序列化为 Java Map
             return loadAndParseCompatible(msgpackBytes);
+        }
+    }
+
+    public static Object deleteKey(String... key) throws IOException {
+        try (Jedis jedis = jedisPool.getResource()) {
+            return jedis.del(key);
         }
     }
 

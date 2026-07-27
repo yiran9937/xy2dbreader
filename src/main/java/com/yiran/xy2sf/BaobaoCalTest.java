@@ -2,26 +2,41 @@ package com.yiran.xy2sf;
 
 public class BaobaoCalTest {
 
-    //^.*加强魅惑.*(?:\r?\n|\r)?
-
-    // 测试调用
     public static void main(String[] args) {
-        // 示例：成长率 1.275，100级，全敏加点 400 点，初值血100/法0/攻0/速180
+        // 测试 1
         PetAttributeResult result = predictPetAttributes(
                 3.605, // 成长率
                 160,   // 等级
                 0,     // 根骨加点
                 0,     // 灵性加点
-                730,     // 力量加点
-                0,   // 敏捷加点
+                730,   // 力量加点
+                0,     // 敏捷加点
 
                 300,   // 初值血
-                0,     // 初值法
-                360,     // 初值攻
-                0    // 初值速
+                300,     // 初值法
+                360,   // 初值攻
+                0      // 初值速
         );
 
         System.out.println(result);
+
+        // 测试 2 (完全匹配官网样例)
+        PetAttributeResult result2 = predictPetAttributes(
+                1.092, // 成长率
+                160,   // 等级
+                730,     // 根骨加点
+                0,     // 灵性加点
+                0,   // 力量加点
+                0,     // 敏捷加点
+
+                1200,  // 初值血
+                0,     // 初值法
+                1518,  // 初值攻
+                1000      // 初值速
+        );
+
+        System.out.println(result2);
+
     }
 
     public static class PetAttributeResult {
@@ -50,18 +65,7 @@ public class BaobaoCalTest {
     }
 
     /**
-     * 计算召唤兽最终属性预测值（包含等级自动增加的基础点数）
-     *
-     * @param growthRate Growth rate (e.g. 1.275)
-     * @param level      Level
-     * @param addBone    Manual allocation for Bone
-     * @param addSpirit  Manual allocation for Spirit
-     * @param addPower   Manual allocation for Power
-     * @param addSpeed   Manual allocation for Speed
-     * @param baseHp     Base HP
-     * @param baseMp     Base MP
-     * @param baseAp     Base AP
-     * @param baseSp     Base SP
+     * 计算召唤兽最终属性预测值（官方100%对齐版）
      */
     public static PetAttributeResult predictPetAttributes(
             double growthRate,
@@ -75,31 +79,24 @@ public class BaobaoCalTest {
             int baseAp,
             int baseSp) {
 
-        // 1. 计算各项的总点数 (玩家手动分配的点数 + 等级自带的点数)
+        // 各项总点数 = 玩家手动加点 + 等级自带点数
         int totalBone = addBone + level;
         int totalSpirit = addSpirit + level;
         int totalPower = addPower + level;
         int totalSpeed = addSpeed + level;
 
-        // 2. 计算 HP (血量)
-        int hpFromStats = (int) Math.floor(level * growthRate * totalBone * 0.7);
-        int hpFromBase = (int) Math.floor(baseHp * (1 + level * growthRate * 0.002));
-        int finalHp = hpFromStats + hpFromBase;
+        // 1. HP 计算
+        int finalHp = baseHp + (int) Math.floor((baseHp * 0.7 + totalBone) * level * growthRate);
 
-        // 3. 计算 MP (法力)
-        int mpFromStats = (int) Math.floor(level * growthRate * totalSpirit * 0.7);
-        int mpFromBase = (int) Math.floor(baseMp * (1 + level * growthRate * 0.002));
-        int finalMp = mpFromStats + mpFromBase;
+        // 2. MP 计算
+        int finalMp = baseMp + (int) Math.floor((baseMp * 0.7 + totalSpirit) * level * growthRate);
 
-        // 4. 计算 AP (攻击)
-        int apFromStats = (int) Math.floor(level * growthRate * totalPower * 0.14);
-        int apFromBase = (int) Math.floor(baseAp * (1 + level * growthRate * 0.002));
-        int finalAp = apFromStats + apFromBase;
+        // 3. AP 计算
+        int finalAp = baseAp + (int) Math.floor((baseAp * 0.14 + totalPower * 0.2) * level * growthRate);
 
-        // 5. 计算 SP (速度)
+        // 4. SP 计算
         int finalSp = (int) Math.floor((baseSp + totalSpeed) * growthRate);
 
         return new PetAttributeResult(finalHp, finalMp, finalAp, finalSp);
     }
-
 }
