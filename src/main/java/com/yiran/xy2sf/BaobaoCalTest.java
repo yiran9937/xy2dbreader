@@ -5,34 +5,34 @@ public class BaobaoCalTest {
     public static void main(String[] args) {
         // 测试 1
         PetAttributeResult result = predictPetAttributes(
-                3.605, // 成长率
+                3.400, // 成长率
                 160,   // 等级
                 0,     // 根骨加点
                 0,     // 灵性加点
                 730,   // 力量加点
                 0,     // 敏捷加点
 
-                300,   // 初值血
-                300,     // 初值法
-                360,   // 初值攻
-                0      // 初值速
+                6666,   // 初值血
+                6666,     // 初值法
+                6696,   // 初值攻
+                6666      // 初值速
         );
 
         System.out.println(result);
 
         // 测试 2 (完全匹配官网样例)
         PetAttributeResult result2 = predictPetAttributes(
-                1.092, // 成长率
+                5.40, // 成长率
                 160,   // 等级
-                730,     // 根骨加点
+                0,     // 根骨加点
                 0,     // 灵性加点
-                0,   // 力量加点
+                730,   // 力量加点
                 0,     // 敏捷加点
 
-                1200,  // 初值血
-                0,     // 初值法
-                1518,  // 初值攻
-                1000      // 初值速
+                3333,  // 初值血
+                3333,     // 初值法
+                3393,  // 初值攻
+                3333      // 初值速
         );
 
         System.out.println(result2);
