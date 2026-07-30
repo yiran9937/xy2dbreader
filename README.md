@@ -40,5 +40,5 @@
 
 ### 1. 克隆项目
 ```bash
-git clone [https://github.com/your-username/xy2-db-editor.git](https://github.com/your-username/xy2-db-editor.git)
-cd xy2-db-editor
+git clone [https://github.com/yiran9937/xy2dbreader.git](https://github.com/yiran9937/xy2dbreader.git)
+cd xy2dbreader
