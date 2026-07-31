@@ -14,11 +14,13 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.util.StringConverter;
 
 import java.io.File;
 import java.util.*;
@@ -34,27 +36,33 @@ public class MainViewController {
     private final TableView<Map<String, Object>> tableView = new TableView<>();
     private final TextArea jsonTextArea = new TextArea();
     private final TextField dbPathField = new TextField();
-    private final TextField tableNameField = new TextField("物品");
+
+    // --- 将 TextField 替换为 ComboBox 下拉列表 ---
+    private final ComboBox<String> tableNameComboBox = new ComboBox<>();
+
     private final TextField pkColumnField = new TextField("nid");
     private final TextField blobColumnField = new TextField("数据");
 
     private GenericTableDAO dao;
     private Map<String, Object> selectedRow;
 
-    // --- 数据源与筛选/排序容器 ---
+    // 记录最后一次在左侧表格中编辑的行及其原主键
+    private Map<String, Object> lastEditedRow = null;
+    Object lastEditedPkValue = null;
+
+    // 数据源与筛选/排序容器
     private final ObservableList<Map<String, Object>> masterData = FXCollections.observableArrayList();
     private final FilteredList<Map<String, Object>> filteredData = new FilteredList<>(masterData, p -> true);
     private final SortedList<Map<String, Object>> sortedData = new SortedList<>(filteredData);
     private final Map<String, Predicate<Map<String, Object>>> columnFilters = new HashMap<>();
 
     public Parent getView() {
-        // --- 0. 动态添加高亮选中行（正在修改行）的深色 CSS 样式 ---
         String darkSelectedRowCss = "data:text/css," +
                 ".table-row-cell:selected {" +
-                "    -fx-background-color: #1E293B !important;" + // 正在修改的数据行：深蓝色/黑灰色背景
+                "    -fx-background-color: #1E293B !important;" +
                 "}" +
                 ".table-row-cell:selected .table-cell {" +
-                "    -fx-text-fill: #F8FAFC !important;" + // 亮白色加粗文字
+                "    -fx-text-fill: #F8FAFC !important;" +
                 "    -fx-font-weight: bold;" +
                 "}";
         root.getStylesheets().add(darkSelectedRowCss);
@@ -67,7 +75,10 @@ public class MainViewController {
         String lastPath = prefs.get(KEY_DB_PATH, "");
         dbPathField.setText(lastPath);
         dbPathField.setPromptText("请选择 SQLite 数据库文件 (.db)");
-        dbPathField.setPrefWidth(280);
+        dbPathField.setPrefWidth(260);
+
+        tableNameComboBox.setPrefWidth(120);
+        tableNameComboBox.setPromptText("选择表名");
 
         Button browseBtn = new Button("选择数据库");
         browseBtn.setOnAction(e -> selectDatabaseFile());
@@ -77,23 +88,33 @@ public class MainViewController {
 
         topBar.getChildren().addAll(
                 new Label("数据库:"), dbPathField, browseBtn,
-                new Label("表名:"), tableNameField,
+                new Label("表名:"), tableNameComboBox,
                 new Label("主键:"), pkColumnField,
                 new Label("BLOB列:"), blobColumnField,
                 loadBtn
         );
         root.setTop(topBar);
 
+        // 界面初始化时，若上一次有保存路径，自动扫描一次表名
+        if (!lastPath.isEmpty() && new File(lastPath).exists()) {
+            scanTableNames(lastPath);
+        }
+
         // --- 2. 主体左右布局 ---
         HBox mainContent = new HBox(15);
         mainContent.setPadding(new Insets(10));
 
-        // 左侧：数据列表（支持筛选 + 点击表头排序）
-        VBox leftBox = new VBox(8, new Label("数据列表："), tableView);
+        tableView.setEditable(true);
+
+        Button saveTableBtn = new Button("保存表格修改 (仅保存最后编辑行)");
+        saveTableBtn.setMaxWidth(Double.MAX_VALUE);
+        saveTableBtn.setStyle("-fx-background-color: #0284C7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 15;");
+        saveTableBtn.setOnAction(e -> saveTableChanges());
+
+        VBox leftBox = new VBox(8, new Label("数据列表（双击单元格可直接修改）："), tableView, saveTableBtn);
         HBox.setHgrow(leftBox, Priority.ALWAYS);
         VBox.setVgrow(tableView, Priority.ALWAYS);
 
-        // 绑定 SortedList 以支持点击表头正序/逆序排列
         sortedData.comparatorProperty().bind(tableView.comparatorProperty());
         tableView.setItems(sortedData);
 
@@ -104,7 +125,7 @@ public class MainViewController {
             }
         });
 
-        // 右侧：JSON 编辑区（支持 Pretty 格式化显示/修改）
+        // 右侧 JSON 区域
         jsonTextArea.setWrapText(true);
         jsonTextArea.setStyle("-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 13px;");
         jsonTextArea.setMinWidth(420);
@@ -112,12 +133,12 @@ public class MainViewController {
         jsonTextArea.setMaxWidth(1000);
         VBox.setVgrow(jsonTextArea, Priority.ALWAYS);
 
-        Button saveBtn = new Button("验证并保存修改");
-        saveBtn.setMaxWidth(Double.MAX_VALUE);
-        saveBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 15;");
-        saveBtn.setOnAction(e -> saveJsonChanges());
+        Button saveJsonBtn = new Button("验证并保存二进制数据");
+        saveJsonBtn.setMaxWidth(Double.MAX_VALUE);
+        saveJsonBtn.setStyle("-fx-background-color: #16A34A; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 15;");
+        saveJsonBtn.setOnAction(e -> saveJsonChanges());
 
-        VBox rightBox = new VBox(8, new Label("解包 JSON 数据（可直接修改）："), jsonTextArea, saveBtn);
+        VBox rightBox = new VBox(8, new Label("解包 JSON 数据（可直接修改）："), jsonTextArea, saveJsonBtn);
         VBox.setVgrow(rightBox, Priority.ALWAYS);
 
         mainContent.getChildren().addAll(leftBox, rightBox);
@@ -126,39 +147,84 @@ public class MainViewController {
         return root;
     }
 
+    /**
+     * 选择数据库文件并自动扫描里面的表名
+     */
     private void selectDatabaseFile() {
         FileChooser chooser = new FileChooser();
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("SQLite DB", "*.db", "*.sqlite"));
+
+        String currentPath = dbPathField.getText().trim();
+        if (!currentPath.isEmpty()) {
+            File currentFile = new File(currentPath);
+            File initialDir = null;
+
+            if (currentFile.exists()) {
+                initialDir = currentFile.isDirectory() ? currentFile : currentFile.getParentFile();
+            } else {
+                File parent = currentFile.getParentFile();
+                if (parent != null && parent.exists() && parent.isDirectory()) {
+                    initialDir = parent;
+                }
+            }
+
+            if (initialDir != null && initialDir.exists()) {
+                chooser.setInitialDirectory(initialDir);
+            }
+        }
+
         File file = chooser.showOpenDialog(root.getScene().getWindow());
         if (file != null) {
             String path = file.getAbsolutePath();
             dbPathField.setText(path);
             prefs.put(KEY_DB_PATH, path);
+
+            // 选择文件后自动扫描表名
+            scanTableNames(path);
         }
     }
 
     /**
-     * 完全加载/重置表（重新生成列和表头组件）
+     * 自动扫描数据库中的所有表名并填充到 ComboBox 中
      */
+    private void scanTableNames(String dbPath) {
+        try {
+            dao = new GenericTableDAO(dbPath);
+            List<String> tables = dao.getAllTableNames();
+
+            tableNameComboBox.getItems().clear();
+            if (tables.isEmpty()) {
+                showAlert(Alert.AlertType.WARNING, "提示", "该数据库文件中未找到任何可用数据表！");
+            } else {
+                tableNameComboBox.getItems().addAll(tables);
+                tableNameComboBox.getSelectionModel().selectFirst(); // 默认选中第一个表
+            }
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "扫描表名失败", e.getMessage());
+        }
+    }
+
     private void loadData() {
         String dbPath = dbPathField.getText().trim();
-        String tableName = tableNameField.getText().trim();
+        String tableName = tableNameComboBox.getValue();
 
-        if (dbPath.isEmpty() || tableName.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "错误", "请配置有效的数据库路径和表名！");
+        if (dbPath.isEmpty() || tableName == null || tableName.trim().isEmpty()) {
+            showAlert(Alert.AlertType.ERROR, "错误", "请选择有效的数据库文件和表名！");
             return;
         }
 
         try {
-            dao = new GenericTableDAO(dbPath);
+            if (dao == null) {
+                dao = new GenericTableDAO(dbPath);
+            }
             List<Map<String, Object>> list = dao.executeQuery(tableName, "");
 
-            // 1. 更新主数据源并清空筛选
             masterData.setAll(list);
             columnFilters.clear();
+            lastEditedRow = null;
+            lastEditedPkValue = null;
             applyFilters();
 
-            // 2. 动态生成带筛选和排序能力的列
             tableView.getColumns().clear();
             if (!list.isEmpty()) {
                 Map<String, Object> firstRow = list.get(0);
@@ -176,21 +242,16 @@ public class MainViewController {
         }
     }
 
-    /**
-     * 局部重新加载数据库数据（保存成功后调用）：不重建UI，保持过滤条件、排序状态及当前选中行
-     */
     private void reloadTableDataOnly() {
         if (dao == null) return;
         try {
-            String tableName = tableNameField.getText().trim();
+            String tableName = tableNameComboBox.getValue();
             String pkCol = pkColumnField.getText().trim();
             Object currentPkValue = (selectedRow != null) ? selectedRow.get(pkCol) : null;
 
-            // 重新查询最新的数据列表
             List<Map<String, Object>> list = dao.executeQuery(tableName, "");
-            masterData.setAll(list); // FilteredList 和 SortedList 会自动平滑响应更新
+            masterData.setAll(list);
 
-            // 重新定位并高亮选中原数据行
             if (currentPkValue != null) {
                 for (Map<String, Object> row : tableView.getItems()) {
                     if (Objects.equals(row.get(pkCol), currentPkValue)) {
@@ -205,15 +266,43 @@ public class MainViewController {
         }
     }
 
-    /**
-     * 创建带 Excel 筛选框且支持表头正逆序排列的 TableColumn
-     */
     private TableColumn<Map<String, Object>, Object> createFilterableColumn(String colName, boolean isNumeric) {
         TableColumn<Map<String, Object>, Object> col = new TableColumn<>();
         col.setCellValueFactory(param -> new SimpleObjectProperty<>(param.getValue().get(colName)));
         col.setSortable(true);
 
-        // 设置自定义智能比较器，支持数值与字符串排序
+        String blobCol = blobColumnField.getText().trim();
+        boolean isBlob = colName.equalsIgnoreCase(blobCol);
+
+        if (!isBlob) {
+            col.setEditable(true);
+            col.setCellFactory(TextFieldTableCell.forTableColumn(new StringConverter<Object>() {
+                @Override
+                public String toString(Object object) {
+                    return object == null ? "" : object.toString();
+                }
+
+                @Override
+                public Object fromString(String string) {
+                    return string;
+                }
+            }));
+
+            col.setOnEditCommit(event -> {
+                Map<String, Object> row = event.getRowValue();
+                String pkCol = pkColumnField.getText().trim();
+
+                if (lastEditedRow != row) {
+                    lastEditedRow = row;
+                    lastEditedPkValue = row.get(pkCol);
+                }
+
+                row.put(colName, event.getNewValue());
+            });
+        } else {
+            col.setEditable(false);
+        }
+
         col.setComparator((o1, o2) -> {
             if (o1 == o2) return 0;
             if (o1 == null) return -1;
@@ -244,13 +333,13 @@ public class MainViewController {
             minField.setPromptText("起");
             minField.setPrefWidth(45);
             minField.setStyle("-fx-font-size: 10px; -fx-padding: 2;");
-            minField.setOnMouseClicked(Event::consume); // 阻止事件冒泡，防止点击输入框触发表头排序
+            minField.setOnMouseClicked(Event::consume);
 
             TextField maxField = new TextField();
             maxField.setPromptText("止");
             maxField.setPrefWidth(45);
             maxField.setStyle("-fx-font-size: 10px; -fx-padding: 2;");
-            maxField.setOnMouseClicked(Event::consume); // 阻止事件冒泡
+            maxField.setOnMouseClicked(Event::consume);
 
             Runnable updateNumericFilter = () -> {
                 String minStr = minField.getText().trim();
@@ -291,7 +380,7 @@ public class MainViewController {
             TextField filterField = new TextField();
             filterField.setPromptText("筛选...");
             filterField.setStyle("-fx-font-size: 10px; -fx-padding: 2;");
-            filterField.setOnMouseClicked(Event::consume); // 阻止事件冒泡，防止点击输入框触发表头排序
+            filterField.setOnMouseClicked(Event::consume);
 
             filterField.textProperty().addListener((obs, o, n) -> {
                 String filterText = (n == null) ? "" : n.trim().toLowerCase();
@@ -359,6 +448,30 @@ public class MainViewController {
         }
     }
 
+    private void saveTableChanges() {
+        if (lastEditedRow == null || lastEditedPkValue == null) {
+            showAlert(Alert.AlertType.INFORMATION, "提示", "当前没有在左侧表格中编辑过任何数据！");
+            return;
+        }
+
+        try {
+            String tableName = tableNameComboBox.getValue();
+            String pkCol = pkColumnField.getText().trim();
+            String blobCol = blobColumnField.getText().trim();
+
+            dao.updateRowData(tableName, pkCol, lastEditedPkValue, lastEditedRow, blobCol);
+
+            showAlert(Alert.AlertType.INFORMATION, "成功", "表格最后编辑行数据保存成功！");
+
+            lastEditedRow = null;
+            lastEditedPkValue = null;
+            reloadTableDataOnly();
+
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "保存失败", e.getMessage());
+        }
+    }
+
     private void saveJsonChanges() {
         if (selectedRow == null) {
             showAlert(Alert.AlertType.WARNING, "提示", "请先选择左侧表中的一条数据！");
@@ -367,26 +480,23 @@ public class MainViewController {
 
         String jsonText = jsonTextArea.getText();
 
-        // 1. JSON 格式合法性校验
         if (!MsgPackUtil.isValidJson(jsonText)) {
             showAlert(Alert.AlertType.ERROR, "JSON 验证错误", "修改后的内容不是合法的 JSON 格式，请检查语法！");
             return;
         }
 
-        // 2. 格式化 JSON (Pretty Print) 并回显至文本框
         String formattedJsonText;
         try {
             Object parsedJson = JSON.parse(jsonText);
             formattedJsonText = JSON.toJSONString(parsedJson, JSONWriter.Feature.PrettyFormat);
-            jsonTextArea.setText(formattedJsonText); // 回显美化后的 JSON 字符串
+            jsonTextArea.setText(formattedJsonText);
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "JSON 格式化失败", "格式化 JSON 报错: " + e.getMessage());
             return;
         }
 
-        // 3. 执行打包并保存到数据库
         try {
-            String tableName = tableNameField.getText().trim();
+            String tableName = tableNameComboBox.getValue();
             String pkCol = pkColumnField.getText().trim();
             String blobCol = blobColumnField.getText().trim();
             Object pkValue = selectedRow.get(pkCol);
@@ -394,8 +504,6 @@ public class MainViewController {
             dao.updateBlobData(tableName, pkCol, pkValue, blobCol, formattedJsonText);
 
             showAlert(Alert.AlertType.INFORMATION, "成功", "二进制数据打包并保存至数据库成功！");
-
-            // 4. 局部刷新数据：不重建 UI，保留已有的筛选条件、排序和选中行
             reloadTableDataOnly();
 
         } catch (Exception e) {
