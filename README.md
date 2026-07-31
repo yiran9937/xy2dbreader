@@ -1,6 +1,6 @@
 # 🛠️ XY2 DB Editor - 通用 SQLite MsgPack/JSON 可视化编辑器
 
-一款基于 **JavaFX 19** 开发的桌面端 SQLite 数据库可视编辑工具，专为处理包含 **MsgPack 二进制压缩（BLOB）** 数据的表结构而设计。
+一款基于 **JavaFX 19** 开发的桌面端 SQLite 数据库可视编辑工具，专为处理包含 **MsgPack 二进制压缩（BLOB）** 数据的表结构而设计。**注意： ** 修改前，一定要停止服务器运行。如果修改数据无效，很可能是redis缓存问题，如果不会删除redis数据，可以完全删除redis文件，文件路径：服务端\redis\dump.rdb 修改数据完成后，才能启动服务器看效果.
 
 ![Java Version](https://img.shields.io/badge/Java-19%2B-orange)
 ![JavaFX](https://img.shields.io/badge/JavaFX-19-blue)
